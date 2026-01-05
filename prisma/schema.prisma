@@ -1,0 +1,230 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// User & Authentication
+// ==========================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipes       Recipe[]       @relation("RecipeAuthor")
+  articles      Article[]      @relation("ArticleAuthor")
+  comments      Comment[]
+  ratings       Rating[]
+  favorites     Favorite[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Device/session info for security
+  userAgent String?
+  ipAddress String?
+  isRevoked Boolean  @default(false)
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ==========================================
+// Recipe & Related Models
+// ==========================================
+
+model Recipe {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  description String
+  image       String?
+  prepTime    Int // minutes
+  cookTime    Int // minutes
+  servings    Int
+  difficulty  Difficulty
+  published   Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  authorId   String
+  author     User     @relation("RecipeAuthor", fields: [authorId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  ingredients Ingredient[]
+  steps       Step[]
+  tags        TagsOnRecipes[]
+  comments    Comment[]
+  ratings     Rating[]
+  favorites   Favorite[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([authorId])
+  @@map("recipes")
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Ingredient {
+  id       String  @id @default(cuid())
+  name     String
+  amount   String
+  unit     String?
+  order    Int     @default(0)
+  recipeId String
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@map("ingredients")
+}
+
+model Step {
+  id          String  @id @default(cuid())
+  order       Int
+  instruction String
+  image       String?
+  recipeId    String
+  recipe      Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@map("steps")
+}
+
+// ==========================================
+// Categories & Tags
+// ==========================================
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  image    String?
+  recipes  Recipe[]
+  articles Article[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id      String          @id @default(cuid())
+  name    String          @unique
+  slug    String          @unique
+  recipes TagsOnRecipes[]
+
+  @@map("tags")
+}
+
+model TagsOnRecipes {
+  recipeId String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  tagId    String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, tagId])
+  @@map("tags_on_recipes")
+}
+
+// ==========================================
+// Articles / Blog
+// ==========================================
+
+model Article {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  excerpt   String
+  content   String
+  image     String?
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authorId   String
+  author     User      @relation("ArticleAuthor", fields: [authorId], references: [id])
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  comments   Comment[]
+
+  @@index([slug])
+  @@index([authorId])
+  @@map("articles")
+}
+
+// ==========================================
+// User Engagement
+// ==========================================
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  recipeId  String?
+  recipe    Recipe?  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  articleId String?
+  article   Article? @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([recipeId])
+  @@index([articleId])
+  @@map("comments")
+}
+
+model Rating {
+  id       String @id @default(cuid())
+  value    Int // 1-5
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  recipeId String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, recipeId])
+  @@map("ratings")
+}
+
+model Favorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  recipeId  String
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, recipeId])
+  @@map("favorites")
+}

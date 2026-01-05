@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx nuxi:*)",
+      "Bash(dir)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma init)",
+      "Bash(dir:*)"
+    ]
+  }
+}
